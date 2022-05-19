@@ -577,15 +577,15 @@ template <typename frame> struct pipes {
                        cv::CHAIN_APPROX_SIMPLE);
 
 
-      fmt::print("number of bounding boxes: {}\n", contours.size());
+      //fmt::print("number of bounding boxes: {}\n", contours.size());
 
       std::vector<cv::Rect> rectangles;
       rectangles.reserve(contours.size());
       for (auto &&contour : contours) {
         
         auto rect = cv::boundingRect(contour);
-        std::cout << rect.tl().x << " " << rect.tl().y << " " << rect.size().height 
-                 << " " << rect.size().width << std::endl;
+        //std::cout << rect.tl().x << " " << rect.tl().y << " " << rect.size().height 
+        //         << " " << rect.size().width << std::endl;
 
         rectangles.push_back(rect);
 

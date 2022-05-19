@@ -4,6 +4,7 @@
 #include <tuple>
 #include <iostream>
 #include <string.h>
+#include <fstream>
 
 #include <fmt/format.h>
 
@@ -133,6 +134,11 @@ int main(int argc, char *argv[]) {
     strcpy(input_file_name, argv[1]);
   }
 
+  std::ofstream myfile;
+  myfile.open("../bounding_boxes.txt");
+  myfile << "frame" << " " << "tl.x" << " " << "tl.y" << " "
+         << "br.x" << " " << "br.y" << std::endl;
+
   // TODO: we're using USE_CUDA elsewhere to mean that CUDA headers are
   // available (an unfortunate kludge that happens because some builds of OpenCV
   // don't even come with the OpenCV CUDA headers even though those headers have
@@ -186,6 +192,27 @@ int main(int argc, char *argv[]) {
     auto end = std::chrono::steady_clock::now();
     
   
+    int num_bboxes = bounding_boxes.size();
+    std::cout << "bbox main: " << num_bboxes << std::endl;
+
+
+    if (num_bboxes > 0 && i <= 25) {
+
+        for (int j = 0; j < num_bboxes; j++){
+
+        auto rect = bounding_boxes[j];
+        //std::cout << rect.tl().x << " " << rect.tl().y << " " << rect.size().height 
+        //           << " " << rect.size().width << std::endl;
+        myfile << i << " "; //current_frame_num
+        myfile << rect.tl().x << " " << rect.tl().y << " " << rect.tl().x + rect.size().width 
+                   << " " << rect.tl().y + rect.size().width << std::endl;
+
+        }
+
+
+    }
+
+
 
     frame = decltype(frame){};
 
@@ -220,7 +247,10 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  myfile.close();
+
   fmt::print("finished\n");
+
 
   return EXIT_SUCCESS;
 }
