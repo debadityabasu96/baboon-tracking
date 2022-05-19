@@ -7,6 +7,7 @@
 
 #include <fmt/format.h>
 
+#define DEBUG_DRAW
 #include <opencv2/core.hpp>
 #ifdef DEBUG_DRAW
 #include <opencv2/highgui.hpp>
@@ -90,6 +91,14 @@ public:
     auto blobs = detect_blobs.run(std::move(moving_foreground));
 
     fmt::print("Frame {} done\n", current_frame_num);
+
+    //auto bounding_box_color = cv::Scalar(255, 0, 0);
+    //for (auto &&bounding_box : blobs) {
+    //   cv::rectangle(drawing_frame, bounding_box, bounding_box_color, 4);
+    //}
+
+    //show("process", drawing_frame);
+    //cv::waitKey(100);
 
     return blobs;
   }
@@ -175,6 +184,8 @@ int main(int argc, char *argv[]) {
     auto start = std::chrono::steady_clock::now();
     auto bounding_boxes = pl.process(i, std::move(frame));
     auto end = std::chrono::steady_clock::now();
+    
+  
 
     frame = decltype(frame){};
 
@@ -193,18 +204,18 @@ int main(int argc, char *argv[]) {
         cv::rectangle(drawing_frame, bounding_box, bounding_box_color, 4);
       }
 
-      for (int j = 0; j < kf.states_per_baboon * actual_num_baboons;
-           j += kf.states_per_baboon) {
-        cv::circle(drawing_frame,
-                   {static_cast<int>(std::round(x_hat[j + 0])),
-                    static_cast<int>(std::round(x_hat[j + 1]))},
-                   3, {0, 255, 0}, 5);
-        fmt::print("kf estimate at ({}, {}) with velocity of ({}, {})\n",
-                   x_hat[j + 0], x_hat[j + 1], x_hat[j + 2], x_hat[j + 3]);
-      }
+      //for (int j = 0; j < kf.states_per_baboon * actual_num_baboons;
+      //     j += kf.states_per_baboon) {
+        //cv::circle(drawing_frame,
+        //           {static_cast<int>(std::round(x_hat[j + 0])),
+        //            static_cast<int>(std::round(x_hat[j + 1]))},
+        //           3, {0, 255, 0}, 5);
+        //fmt::print("kf estimate at ({}, {}) with velocity of ({}, {})\n",
+        //           x_hat[j + 0], x_hat[j + 1], x_hat[j + 2], x_hat[j + 3]);
+      //}
 
-      show("Blobs on frame", drawing_frame);
-      cv::waitKey();
+     show("Blobs on frame", drawing_frame);
+     cv::waitKey(100);
 #endif
     }
   }

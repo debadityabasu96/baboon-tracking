@@ -6,6 +6,8 @@
 #include "keypoint_descriptor_container.h"
 
 #include "ssc.h"
+#include <fmt/core.h>
+#include <fmt/format.h>
 
 #include <opencv2/calib3d.hpp>
 #include <opencv2/core.hpp>
@@ -21,6 +23,7 @@
 #include <set>
 #include <tuple>
 #include <vector>
+#include <iostream>
 
 namespace baboon_tracking {
 template <typename frame> struct pipes {
@@ -573,10 +576,19 @@ template <typename frame> struct pipes {
       cv::findContours(foreground_mask, contours, cv::RETR_LIST,
                        cv::CHAIN_APPROX_SIMPLE);
 
+
+      fmt::print("number of bounding boxes: {}\n", contours.size());
+
       std::vector<cv::Rect> rectangles;
       rectangles.reserve(contours.size());
       for (auto &&contour : contours) {
-        rectangles.push_back(cv::boundingRect(contour));
+        
+        auto rect = cv::boundingRect(contour);
+        std::cout << rect.tl().x << " " << rect.tl().y << " " << rect.size().height 
+                 << " " << rect.size().width << std::endl;
+
+        rectangles.push_back(rect);
+
       }
 
       return rectangles;
