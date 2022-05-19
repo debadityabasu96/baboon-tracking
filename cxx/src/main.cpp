@@ -193,9 +193,10 @@ int main(int argc, char *argv[]) {
     
   
     int num_bboxes = bounding_boxes.size();
-    std::cout << "bbox main: " << num_bboxes << std::endl;
+    std::cout << "all bbox: " << num_bboxes << std::endl;
 
 
+    int count = 0;
     if (num_bboxes > 0 && i <= 25) {
 
         for (int j = 0; j < num_bboxes; j++){
@@ -203,14 +204,25 @@ int main(int argc, char *argv[]) {
         auto rect = bounding_boxes[j];
         //std::cout << rect.tl().x << " " << rect.tl().y << " " << rect.size().height 
         //           << " " << rect.size().width << std::endl;
-        myfile << i << " "; //current_frame_num
-        myfile << rect.tl().x << " " << rect.tl().y << " " << rect.tl().x + rect.size().width 
+
+        
+        if ( (rect.size().width > 14) || (rect.size().height > 14)) {
+
+            count++;
+            myfile << i << " "; //current_frame_num
+            myfile << rect.tl().x << " " << rect.tl().y << " " << rect.tl().x + rect.size().width 
                    << " " << rect.tl().y + rect.size().width << std::endl;
 
         }
 
 
+        }
+
+
     }
+
+    std::cout << "large bbox count: " << count << std::endl;
+
 
 
 
