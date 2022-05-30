@@ -455,6 +455,10 @@ template <typename frame> struct pipes {
       // TODO: if we're consistient everywhere and we operate on a 32-bit
       // integer then we don't have to normalize. Will need to profile to
       // determine if this is faster.
+
+
+      // auto start = std::chrono::steady_clock::now();
+
       constexpr double uint8_max_double =
           std::numeric_limits<std::uint8_t>::max();
       constexpr double third_gray = uint8_max_double / 3.0;
@@ -469,10 +473,19 @@ template <typename frame> struct pipes {
       auto dissimilarity_host = cv::Mat(dissimilarity);
       auto weights_host = cv::Mat(weights);
 
+      auto num_rows = foreground.rows;
+      auto num_cols = foreground.cols;
+
       // We use MatExpr for lazy evaluation in order avoid the allocation of
       // temporary cv::Mats
-
-      cv::MatExpr weights_low =
+      
+      cv::Mat weights_low = (weights_host <= history_frame_count_third);
+      cv::MatExpr weights_medium =
+          ((weights_host < history_frame_count - 1) & (~weights_low)) 
+          / uint8_max_double * 2.0;
+      cv::Mat weight_levels = weights_low / uint8_max_double + weights_medium;
+      
+      /*cv::MatExpr weights_low =
           (weights_host <= history_frame_count_third) / uint8_max_double;
       cv::MatExpr weights_medium =
           ((weights_host < history_frame_count - 1) &
@@ -481,7 +494,20 @@ template <typename frame> struct pipes {
       // XXX: where is weights_high?
 
       cv::MatExpr weight_levels = weights_low + weights_medium;
-
+      //cv::Mat weight_levels = weights_low + weights_medium;
+      */
+      
+      
+      cv::Mat foreground_temp1 = (foreground <= third_gray);
+      cv::Mat foreground_temp2 = (foreground < (2.0 * third_gray));
+      //cv::MatExpr foreground_low = temp1;
+      cv::MatExpr foreground_medium = ((~foreground_temp1) + foreground_temp2) 
+                                          / uint8_max_double * 2.0;
+      cv::MatExpr foreground_high = (~foreground_temp2) / uint8_max_double * 3.0;
+      cv::Mat foreground_levels = foreground_temp1 / uint8_max_double + 
+                                      foreground_medium + foreground_high;
+      
+      /*
       cv::MatExpr foreground_low =
           (foreground <= third_gray) / uint8_max_double;
       cv::MatExpr foreground_medium =
@@ -491,9 +517,24 @@ template <typename frame> struct pipes {
       cv::MatExpr foreground_high =
           (foreground >= (2.0 * third_gray)) / uint8_max_double * 3.0;
 
-      cv::MatExpr foreground_levels =
+      //cv::MatExpr foreground_levels =
+      //    foreground_low + foreground_medium + foreground_high;
+      cv::Mat foreground_levels =
           foreground_low + foreground_medium + foreground_high;
+      */
 
+
+      cv::Mat dis_temp1 = (dissimilarity_host <= third_gray);
+      cv::Mat dis_temp2 = (dissimilarity_host < (2.0 * third_gray));
+
+      cv::MatExpr dissimilarity_medium = ((~dis_temp1) + dis_temp2 ) 
+                                              / uint8_max_double * 2.0;
+      cv::MatExpr dissimilairy_high = (~dis_temp2) /uint8_max_double * 3.0;
+
+      cv::Mat dissimilarity_levels =
+          dis_temp1 / uint8_max_double + dissimilarity_medium + dissimilairy_high;
+
+      /*
       cv::MatExpr dissimilarity_low =
           (dissimilarity_host <= third_gray) / uint8_max_double;
       cv::MatExpr dissimilarity_medium =
@@ -505,21 +546,50 @@ template <typename frame> struct pipes {
 
       cv::MatExpr dissimilarity_levels =
           dissimilarity_low + dissimilarity_medium + dissimilairy_high;
+      */
+      
+      auto moving_foreground = cv::Mat(foreground);
+      moving_foreground = 0;
 
-      cv::MatExpr moving_foreground =
-          ((weight_levels == 2) & (foreground_levels >= dissimilarity_levels)) /
-          uint8_max_double;
+      for(int i = 0; i < num_rows; i++) {
+          const unsigned char* w_i = weight_levels.ptr<unsigned char>(i);
+          const unsigned char* d_i = dissimilarity_levels.ptr<unsigned char>(i);
+          const unsigned char* f_i = foreground_levels.ptr<unsigned char>(i);
+
+         for(int j = 0; j < num_cols; j++){
+              if (w_i[j] == 2 && f_i[j] >= d_i[j]){
+                  moving_foreground.ptr<unsigned char>(i)[j] = uint8_max_double;
+              }
+              else if (w_i[j] == 1 && d_i[j] == 1 && f_i[j] > d_i[j]) {
+                  moving_foreground.ptr<unsigned char>(i)[j] = uint8_max_double;
+              }
+         }
+      }
+
+      /*
+      cv::Mat moving_foreground =
+          ((weight_levels == 2) & (foreground_levels >= dissimilarity_levels));
+
       moving_foreground =
           moving_foreground + ((weight_levels == 1) &
                                ((dissimilarity_levels == 1) &
-                                (foreground_levels > dissimilarity_levels))) /
-                                  uint8_max_double;
+                                (foreground_levels > dissimilarity_levels)));*/
 
       // XXX: MatExpr doesn't seem to be able to write into existing memory,
       // which is what stops uses in other areas... can we do that and re-use
       // the already-allocated memory in foreground_fr?
+      foreground_fr = frame(moving_foreground);
+      /*
       foreground_fr = frame(cv::Mat(moving_foreground *
                                     std::numeric_limits<std::uint8_t>::max()));
+      */
+
+
+      //auto end = std::chrono::steady_clock::now();
+      //fmt::print(
+      //  "Moving foreground - total took {} ms\n",
+      //  std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
+      //      .count());
       return std::move(foreground_fr);
     }
 
@@ -594,5 +664,21 @@ template <typename frame> struct pipes {
       return rectangles;
     }
   };
+
+
+  class draw_regions {
+  public:
+    void run(const std::vector<cv::Rect> &&bounding_boxes, frame *drawing_frame) {
+
+      std::cout << "Hello, world!" << std::endl;
+
+
+
+
+    }
+
+
+  };
+
 };
 } // namespace baboon_tracking
