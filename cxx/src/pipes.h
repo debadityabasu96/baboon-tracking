@@ -192,7 +192,7 @@ template <typename frame> struct pipes {
         } else if (!fast_detector && !orb_detector) {
 #ifdef USE_CUDA
           fast_detector = cv::cuda::FastFeatureDetector::create(
-              40, true, cv::FastFeatureDetector::TYPE_9_16, 10'000);
+              40, false, cv::FastFeatureDetector::TYPE_9_16, 10'000);
           orb_detector = cv::cuda::ORB::create();
           orb_detector.staticCast<cv::cuda::ORB>()->setBlurForDescriptor(
               false); // We pre-blur the image

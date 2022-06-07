@@ -5,7 +5,7 @@
 #include <iostream>
 #include <string.h>
 #include <fstream>
-
+#define ENABLE_BENCHMARKING
 #include <fmt/format.h>
 
 #define DEBUG_DRAW
@@ -62,35 +62,48 @@ public:
     auto drawing_frame = bgr_frame.clone();
     auto end = std::chrono::steady_clock::now(); 
     #ifdef ENABLE_BENCHMARKING
+    #ifdef USE_CUDA
+    fmt::print("Took {} us for drawing_frame\n",std::chrono::duration_cast<std::chrono::microseconds>(end-start).count());
+    #else
     fmt::print("Took {} ms for drawing_frame\n",std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count());
     #endif
-    
+    #endif
+
     start = std::chrono::steady_clock::now(); 
     auto gray_frame = convert_bgr_to_gray.run(std::move(bgr_frame));
     end = std::chrono::steady_clock::now(); 
     
     #ifdef ENABLE_BENCHMARKING
+    #ifdef USE_CUDA
+    fmt::print("Took {} us for gray_frame\n",std::chrono::duration_cast<std::chrono::microseconds>(end-start).count());
+    #else
     fmt::print("Took {} ms for gray_frame\n",std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count());
     #endif
-    
+    #endif
 
 
     start = std::chrono::steady_clock::now(); 
     auto blurred_frame = blur_gray.run(std::move(gray_frame));
     end = std::chrono::steady_clock::now(); 
     #ifdef ENABLE_BENCHMARKING
+    #ifdef USE_CUDA
+    fmt::print("Took {} us for blurred_frame\n",std::chrono::duration_cast<std::chrono::microseconds>(end-start).count());
+    #else
     fmt::print("Took {} ms for blurred_frame\n",std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count());
     #endif
-    
+    #endif
     
     start = std::chrono::steady_clock::now(); 
     auto homographies =
         compute_homography.run(current_frame_num, std::move(blurred_frame));
     end = std::chrono::steady_clock::now(); 
     #ifdef ENABLE_BENCHMARKING
+    #ifdef USE_CUDA
+    fmt::print("Took {} us for compute_homography\n",std::chrono::duration_cast<std::chrono::microseconds>(end-start).count());
+    #else
     fmt::print("Took {} ms for compute_homography\n",std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count());
     #endif
-
+    #endif
   
     if (homographies.empty())
       return std::vector<cv::Rect>{};
@@ -102,17 +115,24 @@ public:
                                                std::move(homographies));
     end = std::chrono::steady_clock::now(); 
     #ifdef ENABLE_BENCHMARKING
+    #ifdef USE_CUDA
+    fmt::print("Took {} us for history frames and masks\n",std::chrono::duration_cast<std::chrono::microseconds>(end-start).count());
+    #else
     fmt::print("Took {} ms for history frames and masks\n",std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count());
     #endif
-    
+    #endif
 
     start = std::chrono::steady_clock::now(); 
     auto transformed_rescaled_history_frames =
         rescale_transformed_history_frames.run(transformed_history_frames);
     end = std::chrono::steady_clock::now(); 
     #ifdef ENABLE_BENCHMARKING
+    #ifdef USE_CUDA
+    fmt::print("Took {} us for rescale_transformed_history_frames\n",std::chrono::duration_cast<std::chrono::microseconds>(end-start).count());
+    #else
     fmt::print("Took {} ms for rescale_transformed_history_frames\n",std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count());
     #endif
+    #endif 
     
     // Note: seems to fail in weight generation... transformed_rescaled_frames
     // are ok, weights are not
@@ -121,17 +141,23 @@ public:
     auto weights = generate_weights.run(transformed_rescaled_history_frames);
     end = std::chrono::steady_clock::now(); 
     #ifdef ENABLE_BENCHMARKING
+    #ifdef USE_CUDA
+    fmt::print("Took {} us for generating weights\n",std::chrono::duration_cast<std::chrono::microseconds>(end-start).count());
+    #else
     fmt::print("Took {} ms for generating weights\n",std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count());
     #endif
-   
+    #endif
     start = std::chrono::steady_clock::now(); 
     auto history_of_dissimilarity = generate_history_of_dissimilarity.run(
         transformed_history_frames, transformed_rescaled_history_frames);
     end = std::chrono::steady_clock::now(); 
     #ifdef ENABLE_BENCHMARKING
+    #ifdef USE_CUDA
+    fmt::print("Took {} us for history of dissimilarity\n",std::chrono::duration_cast<std::chrono::microseconds>(end-start).count());
+    #else
     fmt::print("Took {} ms for history of dissimilarity\n",std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count());
     #endif
-    
+	#endif
 
     start = std::chrono::steady_clock::now(); 
     auto intersected_frames =
@@ -139,27 +165,36 @@ public:
                              std::move(transformed_rescaled_history_frames));
     end = std::chrono::steady_clock::now(); 
     #ifdef ENABLE_BENCHMARKING
+    #ifdef USE_CUDA
+    fmt::print("Took {} us for intersected_frames\n",std::chrono::duration_cast<std::chrono::microseconds>(end-start).count());
+    #else
     fmt::print("Took {} ms for intersected_frames\n",std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count());
     #endif
-    
+    #endif
     
     start = std::chrono::steady_clock::now(); 
     auto union_of_all =
         union_intersected_frames.run(std::move(intersected_frames));
     end = std::chrono::steady_clock::now(); 
     #ifdef ENABLE_BENCHMARKING
+    #ifdef USE_CUDA
+    fmt::print("Took {} us for union_intersected_frames\n",std::chrono::duration_cast<std::chrono::microseconds>(end-start).count());
+    #else
     fmt::print("Took {} ms for union intersected_frames\n",std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count());
     #endif
-    
+    #endif
     
     start = std::chrono::steady_clock::now(); 
     auto foreground = subtract_background.run(current_frame_num,
                                               std::move(union_of_all), weights);
     end = std::chrono::steady_clock::now(); 
     #ifdef ENABLE_BENCHMARKING
+    #ifdef USE_CUDA
+    fmt::print("Took {} us for subtract background\n",std::chrono::duration_cast<std::chrono::microseconds>(end-start).count());
+    #else
     fmt::print("Took {} ms for subtract background\n",std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count());
     #endif
-
+    #endif
     auto start_mf = std::chrono::steady_clock::now();
 
     auto moving_foreground = compute_moving_foreground.run(
@@ -177,24 +212,34 @@ public:
     apply_masks.run(&moving_foreground, std::move(transformed_masks));
     end = std::chrono::steady_clock::now(); 
     #ifdef ENABLE_BENCHMARKING
+    #ifdef USE_CUDA
+    fmt::print("Took {} us for Applying masks\n",std::chrono::duration_cast<std::chrono::microseconds>(end-start).count());
+    #else
     fmt::print("Took {} ms for Applying masks\n",std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count());
     #endif
-
+    #endif
     
     start = std::chrono::steady_clock::now(); 
     erode_dialate.run(&moving_foreground);
     end = std::chrono::steady_clock::now(); 
     #ifdef ENABLE_BENCHMARKING
+    #ifdef USE_CUDA
+    fmt::print("Took {} us for Erode Dialtes\n",std::chrono::duration_cast<std::chrono::microseconds>(end-start).count());
+    #else
     fmt::print("Took {} ms for Erode Dialtes\n",std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count());
     #endif
-    
+    #endif
+
     start = std::chrono::steady_clock::now(); 
     auto blobs = detect_blobs.run(std::move(moving_foreground));
     end = std::chrono::steady_clock::now(); 
     #ifdef ENABLE_BENCHMARKING
+    #ifdef USE_CUDA
+    fmt::print("Took {} us for Detecting Blobs\n",std::chrono::duration_cast<std::chrono::microseconds>(end-start).count());
+    #else
     fmt::print("Took {} ms for Detecting Blobs\n",std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count());
     #endif
-
+    #endif
     fmt::print("Frame {} done\n", current_frame_num);
 
     //auto bounding_box_color = cv::Scalar(255, 0, 0);
@@ -431,8 +476,14 @@ int main(int argc, char *argv[]) {
         //fmt::print("kf estimate at ({}, {}) with velocity of ({}, {})\n",
         //           x_hat[j + 0], x_hat[j + 1], x_hat[j + 2], x_hat[j + 3]);
       //}
+     
 
+     #ifdef USE_CUDA
+     std::cout << "Skipping GUI Display" << std::endl;
+     #else
      show("Blobs on frame", drawing_frame);
+     #endif
+
      cv::waitKey(100);
      if((cv::waitKey(25) & 0xFF) == 'q')
 	     break;
