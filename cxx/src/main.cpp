@@ -5,7 +5,9 @@
 #include <iostream>
 #include <string.h>
 #include <fstream>
+
 #include <fmt/format.h>
+
 #define DEBUG_DRAW
 #include <opencv2/core.hpp>
 #ifdef DEBUG_DRAW
@@ -22,8 +24,6 @@
 #include "pipes.h"
 // so the compiler doesnt complain
 #define UNUSED(x) (void)(x)
-
-
 
 #ifdef DEBUG_DRAW
 void show(std::string window_name, cv::InputArray image) {
@@ -58,192 +58,153 @@ public:
         erode_dialate{5, 10}, detect_blobs{} {}
 
   auto process(std::uint64_t current_frame_num, frame &&bgr_frame) {
-    
-    
-    auto start = std::chrono::steady_clock::now();
+    auto start = std::chrono::steady_clock::now(); 
     auto drawing_frame = bgr_frame.clone();
+    auto end = std::chrono::steady_clock::now(); 
+    #ifdef ENABLE_BENCHMARKING
+    fmt::print("Took {} ms for drawing_frame\n",std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count());
+    #endif
     
-    auto end = std::chrono::steady_clock::now();
-    /*
-    fmt::print(
-        "Took {} ms for drawing_frame\n",
-        std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
-            .count());
-   */
-    start = std::chrono::steady_clock::now();
+    start = std::chrono::steady_clock::now(); 
     auto gray_frame = convert_bgr_to_gray.run(std::move(bgr_frame));
-
-    end = std::chrono::steady_clock::now();
-    /*
-    fmt::print(
-        "Took {} ms for convert_bgr_to_gray\n",
-        std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
-            .count());
-    */
+    end = std::chrono::steady_clock::now(); 
     
-    start = std::chrono::steady_clock::now();
+    #ifdef ENABLE_BENCHMARKING
+    fmt::print("Took {} ms for gray_frame\n",std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count());
+    #endif
+    
+
+
+    start = std::chrono::steady_clock::now(); 
     auto blurred_frame = blur_gray.run(std::move(gray_frame));
-
-    end = std::chrono::steady_clock::now();
-    /*
-    fmt::print(
-        "Took {} ms for blur_gray\n",
-        std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
-       .count());
-	*/	
-    start = std::chrono::steady_clock::now();
-
+    end = std::chrono::steady_clock::now(); 
+    #ifdef ENABLE_BENCHMARKING
+    fmt::print("Took {} ms for blurred_frame\n",std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count());
+    #endif
+    
+    
+    start = std::chrono::steady_clock::now(); 
     auto homographies =
         compute_homography.run(current_frame_num, std::move(blurred_frame));
+    end = std::chrono::steady_clock::now(); 
+    #ifdef ENABLE_BENCHMARKING
+    fmt::print("Took {} ms for compute_homography\n",std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count());
+    #endif
+
+  
     if (homographies.empty())
       return std::vector<cv::Rect>{};
-    
-    end = std::chrono::steady_clock::now();
-    /*
-    fmt::print(
-        "Took {} ms for compute_homography\n",
-        std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
-            .count());
-    */
-    
-    start = std::chrono::steady_clock::now();
+
+  
+    start = std::chrono::steady_clock::now(); 
     auto [transformed_history_frames, transformed_masks] =
         transform_history_frames_and_masks.run(current_frame_num,
                                                std::move(homographies));
-   
-    end = std::chrono::steady_clock::now();
-    /*
-    fmt::print(
-        "Took {} ms for transform history frames and masks\n",
-        std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
-            .count());
-   */
+    end = std::chrono::steady_clock::now(); 
+    #ifdef ENABLE_BENCHMARKING
+    fmt::print("Took {} ms for history frames and masks\n",std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count());
+    #endif
     
-    start = std::chrono::steady_clock::now();
-    
+
+    start = std::chrono::steady_clock::now(); 
     auto transformed_rescaled_history_frames =
         rescale_transformed_history_frames.run(transformed_history_frames);
+    end = std::chrono::steady_clock::now(); 
+    #ifdef ENABLE_BENCHMARKING
+    fmt::print("Took {} ms for rescale_transformed_history_frames\n",std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count());
+    #endif
     
-    
-    end = std::chrono::steady_clock::now();
-    /*
-    fmt::print(
-        "Took {} ms for rescale_transformed_history_frames\n",
-        std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
-            .count());
-    */
     // Note: seems to fail in weight generation... transformed_rescaled_frames
     // are ok, weights are not
     
-    
-    start = std::chrono::steady_clock::now();
+    start = std::chrono::steady_clock::now(); 
     auto weights = generate_weights.run(transformed_rescaled_history_frames);
-    end = std::chrono::steady_clock::now();
-    /*
-    fmt::print(
-        "Took {} ms for weights\n",
-        std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
-            .count());
-    */
-    
-    start = std::chrono::steady_clock::now();
+    end = std::chrono::steady_clock::now(); 
+    #ifdef ENABLE_BENCHMARKING
+    fmt::print("Took {} ms for generating weights\n",std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count());
+    #endif
+   
+    start = std::chrono::steady_clock::now(); 
     auto history_of_dissimilarity = generate_history_of_dissimilarity.run(
         transformed_history_frames, transformed_rescaled_history_frames);
-    end = std::chrono::steady_clock::now();
-    /*
-    fmt::print(
-        "Took {} ms for history of disssimilarity\n",
-        std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
-            .count());
-    */
+    end = std::chrono::steady_clock::now(); 
+    #ifdef ENABLE_BENCHMARKING
+    fmt::print("Took {} ms for history of dissimilarity\n",std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count());
+    #endif
     
-    
-    start = std::chrono::steady_clock::now();
+
+    start = std::chrono::steady_clock::now(); 
     auto intersected_frames =
         intersect_frames.run(std::move(transformed_history_frames),
                              std::move(transformed_rescaled_history_frames));
+    end = std::chrono::steady_clock::now(); 
+    #ifdef ENABLE_BENCHMARKING
+    fmt::print("Took {} ms for intersected_frames\n",std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count());
+    #endif
     
-    end = std::chrono::steady_clock::now();
-    /*
-    fmt::print(
-        "Took {} ms for intersected_frames\n",
-        std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
-            .count());
-    */
     
-    start = std::chrono::steady_clock::now();
+    start = std::chrono::steady_clock::now(); 
     auto union_of_all =
         union_intersected_frames.run(std::move(intersected_frames));
+    end = std::chrono::steady_clock::now(); 
+    #ifdef ENABLE_BENCHMARKING
+    fmt::print("Took {} ms for union intersected_frames\n",std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count());
+    #endif
     
-    end = std::chrono::steady_clock::now();
-    /*
-    fmt::print(
-        "Took {} ms for union_intersected_frames\n",
-        std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
-            .count());
-	*/
-
-    start = std::chrono::steady_clock::now();
+    
+    start = std::chrono::steady_clock::now(); 
     auto foreground = subtract_background.run(current_frame_num,
                                               std::move(union_of_all), weights);
-    
-    end = std::chrono::steady_clock::now();
-    /*
-    fmt::print(
-        "Took {} ms for subtract background\n",
-        std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
-            .count());
-	*/
+    end = std::chrono::steady_clock::now(); 
+    #ifdef ENABLE_BENCHMARKING
+    fmt::print("Took {} ms for subtract background\n",std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count());
+    #endif
 
-    
-    start = std::chrono::steady_clock::now();
+    auto start_mf = std::chrono::steady_clock::now();
+
     auto moving_foreground = compute_moving_foreground.run(
         std::move(history_of_dissimilarity), std::move(foreground),
         std::move(weights));
-    
-    end = std::chrono::steady_clock::now();
-    /*
+
+    auto end_mf = std::chrono::steady_clock::now();
     fmt::print(
-        "Took {} ms for moving foregroung\n",
-        std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
+        "Moving foreground took {} ms\n",
+        std::chrono::duration_cast<std::chrono::milliseconds>(end_mf - start_mf)
             .count());
-    */
-    
-    
-    start = std::chrono::steady_clock::now();
-    apply_masks.run(&moving_foreground, std::move(transformed_masks));
-    end = std::chrono::steady_clock::now();
-    /*
-    fmt::print(
-        "Took {} ms for Applying masks\n",
-        std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
-            .count());
-    */
-    
-    start = std::chrono::steady_clock::now();
-    erode_dialate.run(&moving_foreground);
-    end = std::chrono::steady_clock::now();
-    /*
-    fmt::print(
-        "Took {} ms for Erode Dialate\n",
-        std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
-            .count());
-    */
-    
-    start = std::chrono::steady_clock::now();
-    auto blobs = detect_blobs.run(std::move(moving_foreground));
-    end = std::chrono::steady_clock::now();
-    
-    /*
-    fmt::print(
-        "Took {} ms for Detect Blobs\n",
-        std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
-            .count());
-    */
-    
-    //fmt::print("Frame {} done\n", current_frame_num);
 
     
+    start = std::chrono::steady_clock::now(); 
+    apply_masks.run(&moving_foreground, std::move(transformed_masks));
+    end = std::chrono::steady_clock::now(); 
+    #ifdef ENABLE_BENCHMARKING
+    fmt::print("Took {} ms for Applying masks\n",std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count());
+    #endif
+
+    
+    start = std::chrono::steady_clock::now(); 
+    erode_dialate.run(&moving_foreground);
+    end = std::chrono::steady_clock::now(); 
+    #ifdef ENABLE_BENCHMARKING
+    fmt::print("Took {} ms for Erode Dialtes\n",std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count());
+    #endif
+    
+    start = std::chrono::steady_clock::now(); 
+    auto blobs = detect_blobs.run(std::move(moving_foreground));
+    end = std::chrono::steady_clock::now(); 
+    #ifdef ENABLE_BENCHMARKING
+    fmt::print("Took {} ms for Detecting Blobs\n",std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count());
+    #endif
+
+    fmt::print("Frame {} done\n", current_frame_num);
+
+    //auto bounding_box_color = cv::Scalar(255, 0, 0);
+    //for (auto &&bounding_box : blobs) {
+    //   cv::rectangle(drawing_frame, bounding_box, bounding_box_color, 4);
+    //}
+
+    //show("process", drawing_frame);
+    //cv::waitKey(100);
+
     return blobs;
   }
 
@@ -276,6 +237,11 @@ int main(int argc, char *argv[]) {
     std::cout << "Using specified file name." << std::endl;
     strcpy(input_file_name, argv[1]);
   }
+
+  std::ofstream myfile;
+  myfile.open("../bounding_boxes.txt");
+  myfile << "frame" << " " << "tl.x" << " " << "tl.y" << " "
+         << "br.x" << " " << "br.y" << std::endl;
 
   // TODO: we're using USE_CUDA elsewhere to mean that CUDA headers are
   // available (an unfortunate kludge that happens because some builds of OpenCV
@@ -310,15 +276,16 @@ int main(int argc, char *argv[]) {
       30,           // Units are pixels
       1.0 / fps // s/frame
   };
-
   static constexpr int actual_num_baboons = 1;
   kf.set_x_hat(0, 2920);
   kf.set_x_hat(1, 1210);
 
+  auto total_time_consumed = 0; //let's count frames in [9,25]
+
   
-    std::ofstream file_handler;
-    file_handler.open("output/baboons.csv");
-    file_handler <<"x1,"<<"y1,"<<"x2,"<<"y2,"<<"frame"<<"\n";
+  std::ofstream file_handler;
+  file_handler.open("output/baboons.csv");
+  file_handler <<"x1,"<<"y1,"<<"x2,"<<"y2,"<<"frame"<<"\n";
   for (std::uint64_t i = 0; vc.read(frame_host) && !frame_host.empty(); i++) {
 #ifdef USE_CUDA
     frame.upload(frame_host);
@@ -332,116 +299,169 @@ int main(int argc, char *argv[]) {
 
     auto start = std::chrono::steady_clock::now();
     auto bounding_boxes = pl.process(i, std::move(frame));
-    
     auto end = std::chrono::steady_clock::now();
-	auto time = end - start;
-    frame = decltype(frame){};
+    auto time_taken = start -end;    
+    // draw_regions(boudning_boxes, drawing_frame);
 
-    /*fmt::print(
-        "Took {} ms\n",
-        std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
-            .count());
-	*/
-    
-    
+
+    frame = decltype(frame){};
+     
+    #ifdef ENABLE_BENCHMARKING
+    fmt::print("Main Took {} ms \n",std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count());
+    #endif
+    /*
     auto start_save_baboons = std::chrono::steady_clock::now();
-    int count_of_bounding_boxes=0;
+    int count_of_bounding_boxes = 0;
     count_of_bounding_boxes = bounding_boxes.size();
 
-    for(int j=0 ; j < count_of_bounding_boxes ; j++)
+    for(int j=0;j< count_of_bounding_boxes;j++)
     {
-	auto rect = bounding_boxes[j];
-	
-	if((rect.size().width >= 15) && (rect.size().height >= 15))
-		file_handler <<rect.tl().x <<"," <<rect.tl().y <<","<<rect.tl().x + rect.size().width<<","<<rect.tl().y + rect.size().height<<","<<i<<std::endl;
-    }    
-
-    
+    auto rect = bounding_boxes[j];
+    if((rect.size().width >=15) && (rect.size().height > = 15))
+	    file_handler <<rect.tl().x <<"," <<rect.tl().y <<","<<rect.tl().x + rect.size().width<<","<<rect.tl().y + rect.size().height<<","<<i<<std::endl;
+    }
     auto end_save_baboons = std::chrono::steady_clock::now();
-    
     auto time_save_baboons = end_save_baboons - start_save_baboons;
-    /*
-    fmt::print(
-        "Took {} ms for save_baboons\n",
-        std::chrono::duration_cast<std::chrono::milliseconds>(end_save_baboons - start_save_baboons)
-	.count());
-	*/
+
+    #ifdef ENABLE_BENCHMARKING
+    fmt::print("Took {} ms for save_baboons \n",std::chrono::duration_cast<std::chrono::milliseconds>(end_save_baboons-start_save_baboons).count());
+    #endif
+    */
     if (!bounding_boxes.empty()) {
       auto x_hat = kf.run(actual_num_baboons, bounding_boxes);
       // macro so the compiler doesnt complain
       UNUSED(x_hat);
 #ifdef DEBUG_DRAW
       static const auto bounding_box_color = cv::Scalar(255, 0, 0);
-      int index = 0;
-      /*
-      std::cout <<"Frame_Number"<<"\t"<<i<<"\n";
-      std::cout <<"Actual_Number"<<"\t"<<actual_num_baboons<<"\n";
-      std::cout <<"Size of Frame Host"<<"\t"<<vc.get(cv::CAP_PROP_FRAME_COUNT)<<"\n";
-      */
-     
-     
-    
-    auto start_draw_regions = std::chrono::steady_clock::now();
-      	for (auto &&bounding_box : bounding_boxes) {
-	      index++;
-	      
-	      //std::cout<< index<<"\n"<<(bounding_box)<<"\n";
-	      cv::rectangle(drawing_frame, bounding_box, bounding_box_color, 4);
-      	      //std::cout<<cv::rectangle.width<<cv::rectangle.height<<"\n";
-      }
+      //for (auto &&bounding_box : bounding_boxes) {
+      //  cv::rectangle(drawing_frame, bounding_box, bounding_box_color, 4);
+      //}
 
-    auto end_draw_regions = std::chrono::steady_clock::now();
-	auto time_draw_regions = end_draw_regions - start_draw_regions;	
-    /*
-	fmt::print(
-        "Took {} ms for DrawRegions\n",
-        std::chrono::duration_cast<std::chrono::milliseconds>(end_draw_regions - start_draw_regions).count());
-  */
-	
-	/*
-      for (int j = 0; j < kf.states_per_baboon * actual_num_baboons;
-           j += kf.states_per_baboon) {
-        cv::circle(drawing_frame,
-                   {static_cast<int>(std::round(x_hat[j + 0])),
-                    static_cast<int>(std::round(x_hat[j + 1]))},
-                   3, {0, 255, 0}, 5);
-        fmt::print("kf estimate at ({}, {}) with velocity of ({}, {})\n",
-                   x_hat[j + 0], x_hat[j + 1], x_hat[j + 2], x_hat[j + 3]);
-      }
-	*/
-      show("Blobs on frame", drawing_frame);
+    int num_bboxes = bounding_boxes.size();
+    std::cout << "all bbox: " << num_bboxes << std::endl;
 
-      if ((cv::waitKey(25) &  0xFF) == 'q')
-		      break;
-#endif
+    cv::putText(drawing_frame, "Frame: " + std::to_string(i), 
+                    cv::Point(100, 100),
+                    cv::FONT_HERSHEY_SIMPLEX,
+                    4,
+                    cv::Scalar(255, 0, 0),
+                    8,
+                    false
+                    );
+
+    auto start = std::chrono::steady_clock::now();
+
+    int count = 0;
+    if (num_bboxes > 0) {
+
+        for (int j = 0; j < num_bboxes; j++){
+
+          auto rect = bounding_boxes[j];
+          //std::cout << rect.tl().x << " " << rect.tl().y << " " << rect.size().height 
+          //           << " " << rect.size().width << std::endl;
+
+        
+          if ( (rect.size().width >= 14) && (rect.size().height >= 14)) {
+
+              count++;
+              //myfile << i << " "; //current_frame_num
+              myfile << rect.tl().x << "," << rect.tl().y << "," << rect.tl().x + rect.size().width 
+                     << "," << rect.tl().y + rect.size().height << ","<<i<< std::endl;
+
+              cv::rectangle(drawing_frame, rect, bounding_box_color, 4);
+              cv::putText(drawing_frame, 
+                    std::to_string(j), 
+                    cv::Point(rect.tl().x, rect.tl().y - 10),
+                    cv::FONT_HERSHEY_SIMPLEX,
+                    1,
+                    cv::Scalar(255, 0, 0),
+                    8,
+                    false
+                    );
+          }
+       }
     }
 
-  int total_frames = vc.get(cv::CAP_PROP_FRAME_COUNT);
-  if (i==10)
-	  std::cout<<"Stating Timer Measurement for next 15 frames"<<std::endl;
-  else if (i==30)
-	  std::cout<<"Ending Timer Measurement Now"<<std::endl;
+    //cv::waitKey(10);
 
-  float progress = (float(i)/float(total_frames))*100;
+    auto end = std::chrono::steady_clock::now();
+
+    if (i >= 9 && i <=25) {
+      fmt::print(
+        "Drawing regions took {} us\n",
+        std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
+            .count());
+      total_time_consumed += std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
+            .count();
+    }
+
+    if (i > 25) {
+        fmt::print("Total for drawing regions: {} us\n", total_time_consumed);
+
+    }
+
+
+    //std::cout << "large bbox count: " << count << std::endl;
+
+
+    /*for (int j = 0; j < num_bboxes; j++){
+
+      auto rect = bounding_boxes[j];
+      cv::rectangle(drawing_frame, rect, bounding_box_color, 4);
+      cv::putText(drawing_frame, 
+                  std::to_string(j), 
+                  cv::Point(rect.tl().x, rect.tl().y - 10),
+                  cv::FONT_HERSHEY_SIMPLEX,
+                  1,
+                  cv::Scalar(255, 0, 0),
+                  8,
+                  false
+                  );
+      }
+  */
+
+
+
+      //for (int j = 0; j < kf.states_per_baboon * actual_num_baboons;
+      //     j += kf.states_per_baboon) {
+        //cv::circle(drawing_frame,
+        //           {static_cast<int>(std::round(x_hat[j + 0])),
+        //            static_cast<int>(std::round(x_hat[j + 1]))},
+        //           3, {0, 255, 0}, 5);
+        //fmt::print("kf estimate at ({}, {}) with velocity of ({}, {})\n",
+        //           x_hat[j + 0], x_hat[j + 1], x_hat[j + 2], x_hat[j + 3]);
+      //}
+
+     show("Blobs on frame", drawing_frame);
+     cv::waitKey(100);
+     if((cv::waitKey(25) & 0xFF) == 'q')
+	     break;
+#endif
+    }
   
-  if(i%100 == 0)
-  	{
-	std::cout<<"[";
-	for(int index=0 ; index < 100 ; index++)
-	{
-		if(index < progress) 
-			std::cout << "=";
-		else if(index == int(progress))
-			std::cout <<">";
-		else
-			std::cout <<" ";
-  	}
 
-	std::cout<<"]"<<int(progress)<<"%"<<std::endl;  
+
+  int total_frames = vc.get(cv::CAP_PROP_FRAME_COUNT);
+  float progress = (float(i)/float(total_frames))*100;
+
+  if(i%100 == 0)
+  {
+	  std::cout<<"[";
+	  for(int index=0;index < 100 ; index++)
+	  {
+		  if(index < progress)
+			  std::cout << "=";
+		  else if (index == int(progress))
+			  std::cout <<".";
+		  else
+			  std::cout <<" ";
+	}
+	  std::cout <<"]"<<int(progress) <<"%"<<std::endl;
   }
   }
   fmt::print("finished\n");
-	
-    file_handler.close();
+
+  myfile.close();
+
   return EXIT_SUCCESS;
 }
