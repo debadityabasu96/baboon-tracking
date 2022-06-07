@@ -84,9 +84,20 @@ public:
         union_intersected_frames.run(std::move(intersected_frames));
     auto foreground = subtract_background.run(current_frame_num,
                                               std::move(union_of_all), weights);
+
+
+    auto start_mf = std::chrono::steady_clock::now();
+
     auto moving_foreground = compute_moving_foreground.run(
         std::move(history_of_dissimilarity), std::move(foreground),
         std::move(weights));
+
+    auto end_mf = std::chrono::steady_clock::now();
+    fmt::print(
+        "Moving foreground took {} ms\n",
+        std::chrono::duration_cast<std::chrono::milliseconds>(end_mf - start_mf)
+            .count());
+
     apply_masks.run(&moving_foreground, std::move(transformed_masks));
     erode_dialate.run(&moving_foreground);
     auto blobs = detect_blobs.run(std::move(moving_foreground));
@@ -176,6 +187,8 @@ int main(int argc, char *argv[]) {
   kf.set_x_hat(0, 2920);
   kf.set_x_hat(1, 1210);
 
+  auto total_time_consumed = 0; //let's count frames in [9,25]
+
   for (std::uint64_t i = 0; vc.read(frame_host) && !frame_host.empty(); i++) {
 #ifdef USE_CUDA
     frame.upload(frame_host);
@@ -191,45 +204,13 @@ int main(int argc, char *argv[]) {
     auto bounding_boxes = pl.process(i, std::move(frame));
     auto end = std::chrono::steady_clock::now();
     
-  
-    int num_bboxes = bounding_boxes.size();
-    std::cout << "all bbox: " << num_bboxes << std::endl;
-
-
-    int count = 0;
-    if (num_bboxes > 0 && i <= 25) {
-
-        for (int j = 0; j < num_bboxes; j++){
-
-        auto rect = bounding_boxes[j];
-        //std::cout << rect.tl().x << " " << rect.tl().y << " " << rect.size().height 
-        //           << " " << rect.size().width << std::endl;
-
-        
-        if ( (rect.size().width > 14) || (rect.size().height > 14)) {
-
-            count++;
-            myfile << i << " "; //current_frame_num
-            myfile << rect.tl().x << " " << rect.tl().y << " " << rect.tl().x + rect.size().width 
-                   << " " << rect.tl().y + rect.size().width << std::endl;
-
-        }
-
-
-        }
-
-
-    }
-
-    std::cout << "large bbox count: " << count << std::endl;
-
-
+    // draw_regions(boudning_boxes, drawing_frame);
 
 
     frame = decltype(frame){};
 
     fmt::print(
-        "Took {} ms\n",
+        "Main Took {} ms\n",
         std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
             .count());
 
@@ -239,9 +220,94 @@ int main(int argc, char *argv[]) {
       UNUSED(x_hat);
 #ifdef DEBUG_DRAW
       static const auto bounding_box_color = cv::Scalar(255, 0, 0);
-      for (auto &&bounding_box : bounding_boxes) {
-        cv::rectangle(drawing_frame, bounding_box, bounding_box_color, 4);
+      //for (auto &&bounding_box : bounding_boxes) {
+      //  cv::rectangle(drawing_frame, bounding_box, bounding_box_color, 4);
+      //}
+
+    int num_bboxes = bounding_boxes.size();
+    std::cout << "all bbox: " << num_bboxes << std::endl;
+
+    cv::putText(drawing_frame, "Frame: " + std::to_string(i), 
+                    cv::Point(100, 100),
+                    cv::FONT_HERSHEY_SIMPLEX,
+                    4,
+                    cv::Scalar(255, 0, 0),
+                    8,
+                    false
+                    );
+
+    auto start = std::chrono::steady_clock::now();
+
+    int count = 0;
+    if (num_bboxes > 0) {
+
+        for (int j = 0; j < num_bboxes; j++){
+
+          auto rect = bounding_boxes[j];
+          //std::cout << rect.tl().x << " " << rect.tl().y << " " << rect.size().height 
+          //           << " " << rect.size().width << std::endl;
+
+        
+          if ( (rect.size().width >= 14) && (rect.size().height >= 14)) {
+
+              count++;
+              myfile << i << " "; //current_frame_num
+              myfile << rect.tl().x << " " << rect.tl().y << " " << rect.tl().x + rect.size().width 
+                     << " " << rect.tl().y + rect.size().width << std::endl;
+
+              cv::rectangle(drawing_frame, rect, bounding_box_color, 4);
+              cv::putText(drawing_frame, 
+                    std::to_string(j), 
+                    cv::Point(rect.tl().x, rect.tl().y - 10),
+                    cv::FONT_HERSHEY_SIMPLEX,
+                    1,
+                    cv::Scalar(255, 0, 0),
+                    8,
+                    false
+                    );
+          }
+       }
+    }
+
+    //cv::waitKey(10);
+
+    auto end = std::chrono::steady_clock::now();
+
+    if (i >= 9 && i <=25) {
+      fmt::print(
+        "Drawing regions took {} us\n",
+        std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
+            .count());
+      total_time_consumed += std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
+            .count();
+    }
+
+    if (i > 25) {
+        fmt::print("Total for drawing regions: {} us\n", total_time_consumed);
+
+    }
+
+
+    //std::cout << "large bbox count: " << count << std::endl;
+
+
+    /*for (int j = 0; j < num_bboxes; j++){
+
+      auto rect = bounding_boxes[j];
+      cv::rectangle(drawing_frame, rect, bounding_box_color, 4);
+      cv::putText(drawing_frame, 
+                  std::to_string(j), 
+                  cv::Point(rect.tl().x, rect.tl().y - 10),
+                  cv::FONT_HERSHEY_SIMPLEX,
+                  1,
+                  cv::Scalar(255, 0, 0),
+                  8,
+                  false
+                  );
       }
+  */
+
+
 
       //for (int j = 0; j < kf.states_per_baboon * actual_num_baboons;
       //     j += kf.states_per_baboon) {
